@@ -1,0 +1,8 @@
+bin
+share
+lib
+include
+.vscode
+blocks
+address2vec*
+pip*

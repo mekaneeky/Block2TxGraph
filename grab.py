@@ -14,7 +14,7 @@ from natsort import natsorted
 # 
 # Note 2: Block 171000 contains multiple inputs from the same address to an output
 # 
-# Note 3: Block 546 contains a tx where there are 2 different inputs and one of them 
+# Note 3: Block 546 contains tx[1] where there are 2 different inputs and one of them 
 # is the two outputs? 
 
 
@@ -84,7 +84,7 @@ def grab_block(start_number = 0, end_number = 70000, blocks_path = os.path.dirna
             json.dump(meta, json_meta_file)
 
 
-def generate_graph(graph = "new", blocks_path = os.path.dirname(os.path.realpath(__file__)), continuation = True):
+def generate_graph(start_number = None, end_number = None, graph = "new", blocks_path = os.path.dirname(os.path.realpath(__file__)), continuation = True):
     
     # Add the ability to split a number of blocks into a many graphs then combine to save
     # memory and prevent hangups
@@ -92,10 +92,12 @@ def generate_graph(graph = "new", blocks_path = os.path.dirname(os.path.realpath
     blocks_added = []    # list of added blocks for the graph_meta.json
     block_file_list = [] # file, so that added blocks are ignored
                          # 
+    #debug vars__ to be deleted
+    debug_zero_div = []
 
     os.chdir(blocks_path + "/blocks")
     if ("meta.json" in os.listdir()):
-        print(str(len(os.listdir())-1) + " Blocks Found")
+        print(str(len(os.listdir())-2) + " Blocks Found")
         block_file_list = natsorted(os.listdir())
         print("Popped" ,block_file_list.pop(), block_file_list.pop()) #popping the meta.json file
 
@@ -108,6 +110,19 @@ def generate_graph(graph = "new", blocks_path = os.path.dirname(os.path.realpath
         graph.add_node("Coinbase")
         graph_meta = {}
         graph_meta["blocks_added"] = blocks_added
+        
+        if start_number == None:
+            start_number = int(block_file_list[0].split('_')[1].split('.')[0])
+            graph_meta["starting_block"] = start_number
+        else:
+            graph_meta["starting_block"] = start_number
+
+        if end_number == None:
+            end_number = int(block_file_list[len(block_file_list)-1].split('_')[1].split('.')[0])
+            graph_meta["starting_block"] = end_number
+        else:
+            graph_meta["starting_block"] = end_number
+
         with open("graph_meta.json", "w+") as graph_meta_file:
             json.dump(graph_meta, graph_meta_file)
     else:
@@ -164,6 +179,7 @@ def generate_graph(graph = "new", blocks_path = os.path.dirname(os.path.realpath
                 tx_vals_temp = []
                 tx_vals = []
 
+
                 for inputx in range(len(inputs)):
                     try:
                         
@@ -214,9 +230,13 @@ def generate_graph(graph = "new", blocks_path = os.path.dirname(os.path.realpath
                             output_vals[current_output_address] = current_output_value
                             tx_vals_temp.append([current_input_address,current_output_address, None])
 
-                    if n_of_outputs <= 0: # If it is one of the weird reorganizing txs
-                        continue          # then skip (refer to block 546)
-                    current_input_value = current_input_value/n_of_outputs
+                    #if n_of_outputs <= 0: # If it is one of the weird reorganizing txs
+                    #    continue          # then skip (refer to block 546)
+                    try:
+                        current_input_value = current_input_value/n_of_outputs
+                    except ZeroDivisionError:
+                        debug_zero_div.append((block_number, tx))
+                        print("alarm ____________________________________________ zero division error")
                     
                     for tx_tuple in tx_vals:
                         tx_tuple[2] = current_input_value
@@ -225,13 +245,22 @@ def generate_graph(graph = "new", blocks_path = os.path.dirname(os.path.realpath
 
                     graph.add_weighted_edges_from(tx_vals)
 
-
+        blocks_added.append(block_number)
         print("-----Nodes in graph: " + str(graph.number_of_nodes()))
         print("-----Edges in graph: " + str(graph.number_of_edges()))
 
-            #The edge generating loop O(n^2)
-            
-            #Testing whether a cartesian prodcut would work for the outputs and inputs
+    print("Zero div list ", debug_zero_div)        #The edge generating loop O(n^2)
+    
+    print("writing edgelist please wait as this might take a while")
+    #Modify nx to add status updates in the write process?
+    nx.readwrite.edgelist.write_edgelist(graph, str(start_number) +  "to" + str(end_number) +".edgelist" )
+    print("Edgelist written")
+
+    print("writing graphML please wait as this might take a while")
+    nx.write_graphml_lxml(graph, str(start_number) +  "to" + str(end_number) +".graphml")
+
+
+    #Testing whether a cartesian prodcut would work for the outputs and inputs
             # and whether their values match up
   #          for input_address, input_value in input_vals.items():
  #               input_value = input_value/n_of_outputs #averaged out output
@@ -250,4 +279,4 @@ def generate_graph(graph = "new", blocks_path = os.path.dirname(os.path.realpath
 #grab_block(start_number = 1, end_number = 4, overwrite = False, continuation = False)
 #grab_block(start_number = 1, end_number = 4, overwrite = True, continuation = True)
 generate_graph()
-grab_block(start_number = 1, end_number = 30000, overwrite = False, continuation = True)
+#grab_block(start_number = 1, end_number = 30000, overwrite = False, continuation = True)

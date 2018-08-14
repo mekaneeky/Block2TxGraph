@@ -8,6 +8,7 @@ from time import sleep, time, gmtime
 import sys
 import re
 from natsort import natsorted
+from multiprocessing import Process
 
 # Note to self: please remember that the input values are spent completely or
 # returned to the change address ! 
@@ -17,25 +18,29 @@ from natsort import natsorted
 # Note 3: Block 546 contains tx[1] where there are 2 different inputs and one of them 
 # is the two outputs? 
 
-
-def grab_block(start_number = 0, end_number = 70000, blocks_path = os.path.dirname(os.path.realpath(__file__)), overwrite = True, continuation = True ):#should I add a store boolean?
-
-    #Make sure not to set a start value explicitly if you're continuing
-    #assert ((continuation == True and start_number == 0) or (continuation == False))
-    
-    blockchain_info_url = "https://blockchain.info/block-height/"
-    blockchain_info_url_suffix = "?format=json"
-    block_file_header = "block_"
-    meta = {}
-    meta["current_block"] = 0
-    meta["retries"] = 0
-    meta["attempts"] = []
-    #Move to the specified directory
+blockchain_info_url = "https://blockchain.info/block-height/"
+blockchain_info_url_suffix = "?format=json"
+block_file_header = "block_"
+max_retries=-1 # so it never stops
+blocks_path = os.path.dirname(os.path.realpath(__file__))
+com_channel=[]
+def main():
     os.chdir(blocks_path)
     if not ("blocks" in os.listdir()):
         os.mkdir("blocks")
     os.chdir("blocks")
 
+
+def grab_block(start_number = 0, end_number = 70000, overwrite = True, continuation = True ):#should I add a store boolean?
+
+    #Make sure not to set a start value explicitly if you're continuing
+    #assert ((continuation == True and start_number == 0) or (continuation == False))
+    
+    meta = {}
+    meta["current_block"] = 0
+    meta["retries"] = 0
+    meta["attempts"] = []
+    #Move to the specified directory
     if continuation == True:
         if "meta.json" in os.listdir():
             with open("meta.json") as json_meta_file:
@@ -53,35 +58,53 @@ def grab_block(start_number = 0, end_number = 70000, blocks_path = os.path.dirna
             continue
         print("Grabbing block: " + str(block))
         #Grab the json block data
-        while True:
-            #req_response = [] # holder for variable
-            try:
-                req_response = requests.get(blockchain_info_url + str(block) + blockchain_info_url_suffix)
-                #import pdb;pdb.set_trace()
-                #Add a timeout setting with a re-request loop
-                # check if the requests.get has a timeout thing
-                # If not then use another (maybe urllib.get?)
-                # or edit requests's source
-            except:
-                sleep(1)
-                print("hiccup in requests.get")
-                continue
-            if req_response.status_code == 200:
-                break
-            else:
-                print("Status not 200, retrying....")
-                meta["retries"] += 1
-                sleep(1)
-        block_json = req_response.json()
+        if block % 10==0 and block!=0:
+            print("lanchued 10 requests wating for them to complete")
+            while True:
+                sleep(0.1)
+                if len(com_channel)==0:
+                    break
+        Process(target=grab_single_block, args=(block,)).start()
+        
 
+
+
+def grab_single_block(block):
+    retries=0
+    com_channel.append(block)
+    index_of_instance=com_channel.index(block)
+    while True:
+        #req_response = [] # holder for variable
+        #try:
+        req_response = requests.get(blockchain_info_url + str(block) +
+            blockchain_info_url_suffix)#,timeout=(5,30)) #connect timeout,read timeout
+            #import pdb;pdb.set_trace()
+            #Add a timeout setting with a re-request loop,done!
+        #except:
+        #    print("hiccup in requests.get")
+        #    continue
+
+        block_json = req_response.json()
         #Write block to file
         with open(block_file_header + str(block) + ".json", "w+") as block_file:
             json.dump(block_json, block_file)
 
         #write current block to meta_file
-        meta["current_block"] = block
-        with open("meta.json", "w+") as json_meta_file:
-            json.dump(meta, json_meta_file)
+        #meta["current_block"] = block
+        #with open("meta.json", "w+") as json_meta_file:
+        #    json.dump(meta, json_meta_file)
+        if req_response.status_code == 200:
+            break
+        else:
+            if retries==max_retries:
+                print("Max retries limit reached for block {0} not retrying".format(block))
+                break
+            print("Status not 200, retrying....")
+
+            retries += 1
+    del com_channel[index_of_instance]
+    os.kill(os.getpid(),9)
+
 
 
 def generate_graph(start_number = None, end_number = None, graph = "new", blocks_path = os.path.dirname(os.path.realpath(__file__)), continuation = True):
@@ -253,11 +276,11 @@ def generate_graph(start_number = None, end_number = None, graph = "new", blocks
     
     print("writing edgelist please wait as this might take a while")
     #Modify nx to add status updates in the write process?
-    nx.readwrite.edgelist.write_edgelist(graph, str(start_number) +  "to" + str(end_number) +".edgelist" )
+    nx.readwrite.edgelist.write_edgelist(graph, "../"+str(start_number) +  "to" + str(end_number) +".edgelist" )
     print("Edgelist written")
 
     print("writing graphML please wait as this might take a while")
-    nx.write_graphml_lxml(graph, str(start_number) +  "to" + str(end_number) +".graphml")
+    nx.write_graphml_lxml(graph, "../"+str(start_number) +  "to" + str(end_number) +".graphml")
 
 
     #Testing whether a cartesian prodcut would work for the outputs and inputs
@@ -275,8 +298,7 @@ def generate_graph(start_number = None, end_number = None, graph = "new", blocks
     
 
 #test code
-#grab_block(start_number = 1, end_number = 4, overwrite = True, continuation = False)
-#grab_block(start_number = 1, end_number = 4, overwrite = False, continuation = False)
-#grab_block(start_number = 1, end_number = 4, overwrite = True, continuation = True)
-generate_graph()
-#grab_block(start_number = 1, end_number = 30000, overwrite = False, continuation = True)
+if __name__=="__main__":
+    main()
+    grab_block(start_number = 1, end_number = 100, overwrite = True, continuation = True) # took 23.812s to complete with internet speed of 3.90/Mbits
+    #generate_graph()

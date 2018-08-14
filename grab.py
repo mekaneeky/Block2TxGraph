@@ -9,7 +9,16 @@ import sys
 import re
 from natsort import natsorted
 from multiprocessing import Process
-# todo meta.json is not valid json still
+
+"Comments From Mohamed"
+# remove end_number from grab_single_block
+
+# script now saves PWD is now blocks but it saves file genrated by generate_graph() in ../
+# I have documented how to set a timeout for requests.get do look at it
+# the imp. is not clean but it works fast and it is efficient 
+# quques instead of channels
+# once a child is dispatched it cannot be killied and it has only copies of gloabl vars and not the actual ones 
+
 # Note to self: please remember that the input values are spent completely or
 # returned to the change address ! 
 # 
@@ -24,14 +33,31 @@ block_file_header = "block_"
 max_retries=-1 # so it never stops
 blocks_path = os.path.dirname(os.path.realpath(__file__))
 com_channel=[]
-com_channel_meta=[]
+gloab_done_channel=[]
 
 def main():
     os.chdir(blocks_path)
     if not ("blocks" in os.listdir()):
         os.mkdir("blocks")
     os.chdir("blocks")
+    if not ("meta.json" in os.listdir()):
+        os.mknod("meta.json")
 
+def clean_json():
+    write_json=[]
+    meta_json=open("meta.json",'r').read()
+    for i in meta_json.split("|||"):
+        try:
+            write_json+=[json.loads(i)]
+            #print(json.loads(i))
+        except:
+            #try:  
+            #   write_json.append(json.loads(i.replace("]{","{").replace("\n","")+"}"))
+            #except:
+            print("error parsing")
+            print(i)
+    print(len(write_json))
+    open("meta.json","w").write(json.dumps(write_json))
 
 def grab_block(start_number = 0, end_number = 70000, overwrite = True, continuation = True ):#should I add a store boolean?
 
@@ -59,20 +85,21 @@ def grab_block(start_number = 0, end_number = 70000, overwrite = True, continuat
             print("Block " + str(block) + " already exists")
             continue
         print("Grabbing block: " + str(block))
-        #Grab the json block data
-        if block % 10==0 and block!=0:
+        #Grab the json block data 
+        if block % 10==0 and block!=0: #opening 1000 tcp sockets is not a good idea 
             print("dispatched 10 requests waiting for them to complete")
             while True:
                 sleep(0.1)
                 if len(com_channel)==0:
+                   #import sys
+                   #print("exit")
+                   #sys.exit(1)
                    break
-        Process(target=grab_single_block, args=(block,meta)).start()
-        
+        Process(target=grab_single_block, args=(block,meta,end_number)).start()
 
 
 
-def grab_single_block(block,meta):
-    retries=0
+def grab_single_block(block,meta,end_number):
     com_channel.append(block)
     meta["current_block"]=block
     index_of_instance=com_channel.index(block)
@@ -100,9 +127,14 @@ def grab_single_block(block,meta):
             print("Status not 200, retrying....")
             meta["retries"] += 1
 
-    del com_channel[index_of_instance]
+    del com_channel[index_of_instance] # according to my notes above
+                                #and expermints I have conducted I have no fucking clue how this works
+                                #maybe it has read access to the acutal vars but only writes to copies ?
+                                #I dunno
     with open("meta.json", "a+") as json_meta_file:
             json.dump(meta, json_meta_file)
+            json_meta_file.write("|||")
+
     print("block {0} done".format(block))
     os.kill(os.getpid(),9)
 
@@ -301,6 +333,10 @@ def generate_graph(start_number = None, end_number = None, graph = "new", blocks
 #test code
 if __name__=="__main__":
     main()
-    grab_block(start_number = 1, end_number = 100, 
-      overwrite = True, continuation = False) # took 20.769s to complete with speed of 3.35/Mbits
+    #grab_block(start_number = 1, end_number = 100, 
+    #  overwrite = True, continuation = False) # took 20.769s to complete with speed of 3.35/Mbits
+    grab_block(start_number=1,end_number=20,overwrite=True,continuation=False)
+    sleep(10) #just so we are sure the last 10 children are done
+    clean_json()
     #generate_graph()
+    #json.loads(open("meta.json",'r').read()) #verifiy the integraty of the json file

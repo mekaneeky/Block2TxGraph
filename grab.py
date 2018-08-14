@@ -9,7 +9,7 @@ import sys
 import re
 from natsort import natsorted
 from multiprocessing import Process
-
+# todo meta.json is not valid json still
 # Note to self: please remember that the input values are spent completely or
 # returned to the change address ! 
 # 
@@ -24,6 +24,8 @@ block_file_header = "block_"
 max_retries=-1 # so it never stops
 blocks_path = os.path.dirname(os.path.realpath(__file__))
 com_channel=[]
+com_channel_meta=[]
+
 def main():
     os.chdir(blocks_path)
     if not ("blocks" in os.listdir()):
@@ -59,50 +61,49 @@ def grab_block(start_number = 0, end_number = 70000, overwrite = True, continuat
         print("Grabbing block: " + str(block))
         #Grab the json block data
         if block % 10==0 and block!=0:
-            print("lanchued 10 requests wating for them to complete")
+            print("dispatched 10 requests waiting for them to complete")
             while True:
                 sleep(0.1)
                 if len(com_channel)==0:
-                    break
-        Process(target=grab_single_block, args=(block,)).start()
+                   break
+        Process(target=grab_single_block, args=(block,meta)).start()
         
 
 
 
-def grab_single_block(block):
+def grab_single_block(block,meta):
     retries=0
     com_channel.append(block)
+    meta["current_block"]=block
     index_of_instance=com_channel.index(block)
     while True:
-        #req_response = [] # holder for variable
-        #try:
-        req_response = requests.get(blockchain_info_url + str(block) +
+        try:
+            req_response = requests.get(blockchain_info_url + str(block) +
             blockchain_info_url_suffix)#,timeout=(5,30)) #connect timeout,read timeout
             #import pdb;pdb.set_trace()
             #Add a timeout setting with a re-request loop,done!
-        #except:
-        #    print("hiccup in requests.get")
-        #    continue
+        except:
+            print("hiccup in requests.get")
+            continue
 
         block_json = req_response.json()
         #Write block to file
         with open(block_file_header + str(block) + ".json", "w+") as block_file:
             json.dump(block_json, block_file)
 
-        #write current block to meta_file
-        #meta["current_block"] = block
-        #with open("meta.json", "w+") as json_meta_file:
-        #    json.dump(meta, json_meta_file)
         if req_response.status_code == 200:
             break
         else:
-            if retries==max_retries:
+            if meta["retries"]==max_retries:
                 print("Max retries limit reached for block {0} not retrying".format(block))
                 break
             print("Status not 200, retrying....")
+            meta["retries"] += 1
 
-            retries += 1
     del com_channel[index_of_instance]
+    with open("meta.json", "a+") as json_meta_file:
+            json.dump(meta, json_meta_file)
+    print("block {0} done".format(block))
     os.kill(os.getpid(),9)
 
 
@@ -300,5 +301,6 @@ def generate_graph(start_number = None, end_number = None, graph = "new", blocks
 #test code
 if __name__=="__main__":
     main()
-    grab_block(start_number = 1, end_number = 100, overwrite = True, continuation = True) # took 23.812s to complete with internet speed of 3.90/Mbits
+    grab_block(start_number = 1, end_number = 100, 
+      overwrite = True, continuation = False) # took 20.769s to complete with speed of 3.35/Mbits
     #generate_graph()

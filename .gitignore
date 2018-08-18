@@ -3,6 +3,7 @@ share
 lib
 include
 .vscode
-blocks
+blocks*
 address2vec*
 pip*
+graphs

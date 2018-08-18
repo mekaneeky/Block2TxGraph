@@ -4,7 +4,7 @@ import networkx as nx
 import requests
 import json
 import os
-from time import sleep, time, gmtime
+from time import sleep, time, gmtime, perf_counter
 import sys
 import re
 from natsort import natsorted
@@ -278,5 +278,5 @@ def generate_graph(start_number = None, end_number = None, graph = "new", blocks
 #grab_block(start_number = 1, end_number = 4, overwrite = True, continuation = False)
 #grab_block(start_number = 1, end_number = 4, overwrite = False, continuation = False)
 #grab_block(start_number = 1, end_number = 4, overwrite = True, continuation = True)
-generate_graph()
-#grab_block(start_number = 1, end_number = 30000, overwrite = False, continuation = True)
+#generate_graph()
+grab_block(start_number = 1, end_number = 5000, overwrite = False, continuation = True)

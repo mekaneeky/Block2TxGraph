@@ -101,19 +101,20 @@ while True:
         #import pdb; pdb.set_trace()
         try:
             fixed_blocks.append(process.json())
+            process.close()
+
         except:
             fixed_blocks.append(None)
-        process.close()
     
     assert len(fixed_blocks) == len(bad_requests) #assure that the fixed blocks 
     #are the same number as the bad ones
 
     for fixed_block in range(len(bad_requests)):
         batch_number = (bad_requests[fixed_block]-1-start_number) // batch_size
-        if ((bad_requests[fixed_block]-1) // batch_size) == ((bad_requests[fixed_block] -1)/ batch_size):
+        if ((bad_requests[fixed_block]-start_number-1) // batch_size) == ((bad_requests[fixed_block]-start_number -1)/ batch_size):
             fixed_block_in_batch = 0
         else:
-            fixed_block_in_batch = (( bad_requests[fixed_block]-start_number )%batch_size) - 1
+            fixed_block_in_batch = (( bad_requests[fixed_block]-start_number-1 )%batch_size)
         print("Block Number:"  + str(bad_requests[fixed_block]))
         print("Batch number: " + str(batch_number))
         print("Block's number in batch: " + str(fixed_block_in_batch))

@@ -143,7 +143,8 @@ def grab_blocks(start_number = 1, end_number = 1000,batch_size = 25):
     os.chdir(blocks_path)
     for block in range(0,end_number-start_number+1):
         print(len(received_blocks))
-        with open(block_file_header + str(block+start_number) + ".json", "w+") as block_file:
+        with open(block_file_header + str(block+start_number+1) + ".json", "w+") as block_file:
+            assert received_blocks[batch_number][fixed_block_in_batch]["blocks"][0]["height"] == block+start_number+1
             print(block_file_header + str(block+start_number) + ".json")
             batch_number = (block) // batch_size
             print("batch number" ,batch_number)
@@ -166,5 +167,5 @@ def grab_blocks(start_number = 1, end_number = 1000,batch_size = 25):
     print("Time take to download and write " +str(end_number-start_number+1) + 
         " blocks to memory is: " + str(end_time-start_time) )
 
-for i in range(1,400000,1000):
-    grab_blocks(i, i+1000-1, 25)
+for i in range(97001,400000,1000):
+    grab_blocks(i, i+1000-1, 10)

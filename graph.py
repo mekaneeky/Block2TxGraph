@@ -1,3 +1,7 @@
+from natsort import natsorted
+import os
+import networkx as nx
+import json
 def generate_graph(start_number = None, end_number = None, graph = "new", blocks_path = os.path.dirname(os.path.realpath(__file__)), continuation = True):
     
     # Add the ability to split a number of blocks into a many graphs then combine to save
@@ -9,7 +13,7 @@ def generate_graph(start_number = None, end_number = None, graph = "new", blocks
     #debug vars__ to be deleted
     debug_zero_div = []
 
-    os.chdir(blocks_path + "/blocks")
+    os.chdir(blocks_path + "/blocks_parallel")
     if ("meta.json" in os.listdir()):
         print(str(len(os.listdir())-2) + " Blocks Found")
         block_file_list = natsorted(os.listdir())
@@ -43,21 +47,44 @@ def generate_graph(start_number = None, end_number = None, graph = "new", blocks
         with open("graph_meta.json") as graph_meta_file:
             graph_meta = json.load(graph_meta_file)
             blocks_added = graph_meta["blocks_added"]
+    
+    start_index = None
+    for block_index in range(len(block_file_list)):
+        if int(block_file_list[block_index].split('_')[1].split('.')[0]) <= start_number:
+            start_index = block_index
+        elif int(block_file_list[block_index].split('_')[1].split('.')[0]) > start_number and (start_index == None):
+            print("Please enter a value for start_number greater than or \
+                equal the smallest block number")
+            raise SyntaxError #FIXME not syntax
+        elif int(block_file_list[block_index].split('_')[1].split('.')[0]) > start_number:
+            break
 
-    for block_file2open in block_file_list:
+    end_index = None
+    for block_index in range(len(block_file_list)-1,start_index,-1):
+        if (int(block_file_list[block_index].split('_')[1].split('.')[0])) >= end_number:
+            end_index = block_index
+        elif (int(block_file_list[block_index].split('_')[1].split('.')[0]) < end_number) and (end_index == None):
+            print("Please enter a value for end_number less than or \
+                equal the largest block number")
+            raise SyntaxError #FIXME not syntax
+        elif int(block_file_list[block_index].split('_')[1].split('.')[0]) < end_number:
+            break
+
+    for block_file2open in block_file_list[start_index:end_index]:
         
         # Make sure to remove the blocks from memory every X blocks
 
-        block_number = block_file2open.split('_')[1].split('.')[0]
+        block_number = int(block_file2open.split('_')[1].split('.')[0])
 
         #if graph != "new" and (block_number in blocks_added): # If block is already added  
         #    continue                                          # and we aren't creating a
         # reimplemented                                        # new graph, then the 
                                                               # 
-                                                              # 
-                                                              # 
+        if (block_number < start_number) or (block_number> end_number):                                                      # 
+            print(str(block_number) + " not included in range")
+            continue
                                                             
-        print("Graphing block " + block_number)
+        print("Graphing block " + str(block_number))
 
         with open(block_file2open) as block_file:
             current_block_file = json.load(block_file)
@@ -184,4 +211,5 @@ def generate_graph(start_number = None, end_number = None, graph = "new", blocks
 
                             
             ## Don't forget to add the graph_meta.json updates and checks 
-
+for i in range(1,400000,20000):
+    generate_graph(i,i+20000)

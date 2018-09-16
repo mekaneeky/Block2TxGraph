@@ -194,11 +194,11 @@ def generate_graph(start_number = None, end_number = None, graph = "new", blocks
     
     print("writing edgelist please wait as this might take a while")
     #Modify nx to add status updates in the write process?
-    nx.readwrite.edgelist.write_edgelist(graph, str(start_number) +  "to" + str(end_number) +".edgelist" )
+    nx.readwrite.edgelist.write_edgelist(graph, "../" + str(start_number) +  "to" + str(end_number) +".edgelist" )
     print("Edgelist written")
 
     print("writing graphML please wait as this might take a while")
-    nx.write_graphml_lxml(graph, str(start_number) +  "to" + str(end_number) +".graphml")
+    nx.write_graphml_lxml(graph, "../" + str(start_number) +  "to" + str(end_number) +".graphml")
 
 
     #Testing whether a cartesian prodcut would work for the outputs and inputs

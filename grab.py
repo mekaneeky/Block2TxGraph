@@ -12,160 +12,165 @@ import pickle
 
 #add metas
 #refactor as functions
+class grabber:
+    def __init__(self,start_number = 1, end_number = 100, batch_size = 100, blocks_path = "/media/sha3bola/4BE6710147B4AF73/address2vec/blocks_parallel_quick"):
+        self.blockchain_info_url = "https://blockchain.info/block-height/"
+        self.blockchain_info_url_suffix = "?format=json"
+        self.block_file_header = "batch_"
+        self.block_file_end = "blocks.json"
+        self.blocks_path = blocks_path
+        self.start_time = timer()
+        self.end_time = None
+        self.received = False
+        self.fixed = False #flag to know whether grabbed blocks are fixed
+        self.start_number = start_number
+        self.end_number = end_number
+        self.batch_size = batch_size
+        self.n_of_batches = int(ceil((end_number - start_number)/batch_size))
+        self.received_blocks = {i:[] for i in range(1,1+self.n_of_batches+1)}
 
 
+    #custom exception handler for grequests
+    @staticmethod
+    def exception_handler(request, exception):
+        print(request, exception)
+        #import pdb;pdb.set_trace()
+        sleep(1)
 
-blockchain_info_url = "https://blockchain.info/block-height/"
-blockchain_info_url_suffix = "?format=json"
-block_file_header = "block_"
+    def grab_blocks(self):
 
-start_time = timer()
+        assert (self.end_number-self.start_number+1)%self.batch_size == 0
 
-
-def exception_handler(request, exception):
-    print(request, exception)
-    #import pdb;pdb.set_trace()
-    sleep(1)
-
-
-def grab_blocks(start_number = 1, end_number = 1000,batch_size = 25):
-
-    assert (end_number-start_number+1)%batch_size == 0
-
-    received_blocks = []
-    n_of_batches = ceil((end_number - start_number +1)/batch_size)
-
-    for i in range(start_number, end_number + 1, batch_size):
-        #for debugging purposes only
-    #    if "pickled" in os.listdir():
-    #        with open("pickled","rb") as me5alela:    
-    #            received_blocks = pickle.load(me5alela)
-    #        break
-        
-        print("Grabbing batch " + str((i-start_number+batch_size)//batch_size))
-        #sleep(0.1)
-        urls = [blockchain_info_url + str(i) + blockchain_info_url_suffix for i in range(i, i+batch_size)]
-        rs = (grequests.get(u, stream = False, timeout = 60) for u in urls) #add timeout=60 in get
-        batch_to_process = grequests.map(rs,size = batch_size, exception_handler=exception_handler)
-        batch_to_append = []
-        for process in batch_to_process:
-            #import pdb; pdb.set_trace()
-            if process == None: ## add fuckup counter
-                batch_to_append.append(None)
-            elif process.status_code != 200:
-                process.close()
-                batch_to_append.append(None)
-            else:
-                try:
-                    batch_to_append.append(process.json())
-                    process.close()
-                except:
+        for i in range(self.start_number, self.start_number + self.n_of_batches+1):
+            print("Grabbing batch " + str(i) )
+            #sleep(0.1)
+            urls = [self.blockchain_info_url + str(j) + self.blockchain_info_url_suffix for j in range(i, i+self.batch_size)]
+            rs = (grequests.get(u, stream = False, timeout = 60) for u in urls) #add timeout=60 in get
+            batch_to_process = grequests.map(rs,size = self.batch_size, exception_handler=self.exception_handler)
+            batch_to_append = []
+            for process in batch_to_process:
+                #import pdb; pdb.set_trace()
+                #integrate checks here and add an off switch for re-checks
+                if process == None: ## add fuckup counter
                     batch_to_append.append(None)
+                elif process.status_code != 200:
                     process.close()
-        
-        received_blocks.append(batch_to_append)
-            
-        #print("Current batch " + str((i-start_number+batch_size)//batch_size))
-        print("Blocks grabbed so far: " + str(len(received_blocks)))
-
-    sleep(2)
-    #import pdb;pdb.set_trace()
-    #print(received_blocks)
-    #Make recursive
-    while True:
-        #this is problematic since it will scan the good blocks as well
-        bad_requests = []
-        fixed_blocks = []
-        #import pdb; pdb.set_trace()
-        for batch in range(n_of_batches):
-            for i in range(len(received_blocks[batch])):
-                #try:
-                if received_blocks[batch][i] == None:
-                    #import pdb; pdb.set_trace()
-                    bad_requests.append((batch)*batch_size + i + start_number+1)
-                #except AttributeError:
-                #    if received_blocks[batch][i] == None:
-                #        bad_requests.append((batch)*batch_size + i+1)
-                #    else:
-                #        print("Weird Value")
-                #        print(received_blocks[batch][i])
-                #        sys.exit()
-        if len(bad_requests) == 0:
-            break
-            
-        print("Cleaning " + str(len(bad_requests)) + " bad requests")    
-        urls = [blockchain_info_url + str(i) + blockchain_info_url_suffix for i in bad_requests]
-
-        rs = (grequests.get(u, stream = False ,  timeout = 30) for u in urls)
-        blocks_to_fix = grequests.map(rs)
-        
-        for process in blocks_to_fix:
+                    batch_to_append.append(None)
+                else:
+                    try:
+                        batch_to_append.append(process.json())
+                        process.close()
+                    except:
+                        batch_to_append.append(None)
+                        process.close()
+            self.received_blocks[i].append(batch_to_append)
+            #print("Current batch " + str((i-start_number+batch_size)//batch_size))
+            print("Blocks grabbed so far: " + str( i* len(self.received_blocks[i][0] )))
             #import pdb; pdb.set_trace()
-            try:
-                fixed_blocks.append(process.json())
-                process.close()
+        self.received = True
+        sleep(2)
 
-            except:
-                fixed_blocks.append(None)
+#Make recursive
+
+    def check_blocks(self):
+        #assert len(received_blocks) == ceil(end_number-start_number/batch_size)
+
+        while True:
+            #this is problematic since it will scan the good blocks as well
+            bad_requests = []
+            fixed_blocks = []
+            #import pdb; pdb.set_trace()
+            for batch in range(1,self.n_of_batches+1):
+                for i in range(len(self.received_blocks[batch][0])):
+                    #try:
+                    if self.received_blocks[batch][0][i] == None:
+                        #import pdb; pdb.set_trace()
+                        bad_requests.append((batch)*self.batch_size + i + self.start_number+1)
+                    #except AttributeError:
+                    #    if received_blocks[batch][i] == None:
+                    #        bad_requests.append((batch)*batch_size + i+1)
+                    #    else:
+                    #        print("Weird Value")
+                    #        print(received_blocks[batch][i])
+                    #        sys.exit()
+            if len(bad_requests) == 0:
+                break
+                
+            print("Cleaning " + str(len(bad_requests)) + " bad requests")    
+            urls = [self.blockchain_info_url + str(i) + self.blockchain_info_url_suffix for i in bad_requests]
+
+            rs = (grequests.get(u, stream = False ,  timeout = 30) for u in urls)
+            blocks_to_fix = grequests.map(rs)
+            
+            for process in blocks_to_fix:
+                #import pdb; pdb.set_trace()
+                try:
+                    fixed_blocks.append(process.json())
+                    process.close()
+
+                except:
+                    fixed_blocks.append(None)
+            
+            assert len(fixed_blocks) == len(bad_requests) #assure that the fixed blocks 
+            #are the same number as the bad ones
+
+            for fixed_block in range(len(bad_requests)):
+                batch_number = (bad_requests[fixed_block]-1-self.start_number) // self.batch_size
+                if ((bad_requests[fixed_block]-self.start_number-1) // self.batch_size) == ((bad_requests[fixed_block]-self.start_number -1)/ self.batch_size):
+                    fixed_block_in_batch = 0
+                else:
+                    fixed_block_in_batch = (( bad_requests[fixed_block]-self.start_number-1 )%self.batch_size)
+                print("Block Number:"  + str(bad_requests[fixed_block]))
+                print("Batch number: " + str(batch_number))
+                print("Block's number in batch: " + str(fixed_block_in_batch))
+                #import pdb;pdb.set_trace()
+                self.received_blocks[batch_number][0][fixed_block_in_batch] = fixed_blocks[fixed_block]
+                print(self.received_blocks[batch_number][0][fixed_block_in_batch])
         
-        assert len(fixed_blocks) == len(bad_requests) #assure that the fixed blocks 
-        #are the same number as the bad ones
-
-        for fixed_block in range(len(bad_requests)):
-            batch_number = (bad_requests[fixed_block]-1-start_number) // batch_size
-            if ((bad_requests[fixed_block]-start_number-1) // batch_size) == ((bad_requests[fixed_block]-start_number -1)/ batch_size):
-                fixed_block_in_batch = 0
-            else:
-                fixed_block_in_batch = (( bad_requests[fixed_block]-start_number-1 )%batch_size)
-            print("Block Number:"  + str(bad_requests[fixed_block]))
-            print("Batch number: " + str(batch_number))
-            print("Block's number in batch: " + str(fixed_block_in_batch))
-            #import pdb;pdb.set_trace()
-            received_blocks[batch_number][fixed_block_in_batch] = fixed_blocks[fixed_block]
-            print(received_blocks[batch_number][fixed_block_in_batch])
-        
-
+        self.fixed = True
     #        if received_blocks[block].status_code != 200:
     #            bad_requests.append(block)
     #            corrected_block = requests.get(blockchain_info_url + str(block) + blockchain_info_url_suffix)
     #            print("Correct block " + str(block))
 
-        
+    def write_blocks(self):        
 
-    blocks_path = "blocks_parallel"
+        if self.received == True:
+            pass
+        else:
+            return "Not received"
+        if self.fixed == False:
+            print("Warning: Blocks not checked")
+        try:
+            os.chdir(self.blocks_path)
+        except FileNotFoundError:
+            os.mkdir(self.blocks_path)
+            os.chdir(self.blocks_path)
 
+        for block_batch in range(1, self.n_of_batches+1):
+            print(len(self.received_blocks))
+            with open(self.block_file_header + str(block_batch*self.batch_size) + self.block_file_end, "w+") as block_file:
+                #assert self.received_blocks[batch_number][fixed_block_in_batch]["blocks"][0]["height"] == block+start_number+1
+                print(self.block_file_header + str(block_batch*self.batch_size) + self.block_file_end)
+                print("batch number" ,block_batch)
+                json.dump(self.received_blocks[block_batch], block_file)
 
-    if blocks_path in os.listdir():
-        pass
-    else:
-        os.mkdir(blocks_path)
+"""                 if self.received_blocks[batch_number][fixed_block_in_batch] == None:
+                    print("----------------------------------------------------")
+                    print("----------------------------------------------------")
+                    print("----------------------------------------------------")
+                    print("Failed bad block repair function")
+                    print("----------------------------------------------------")
+                    print("----------------------------------------------------")
+                    break
+ """
 
-    os.chdir(blocks_path)
-    for block in range(0,end_number-start_number+1):
-        print(len(received_blocks))
-        with open(block_file_header + str(block+start_number+1) + ".json", "w+") as block_file:
-            assert received_blocks[batch_number][fixed_block_in_batch]["blocks"][0]["height"] == block+start_number+1
-            print(block_file_header + str(block+start_number) + ".json")
-            batch_number = (block) // batch_size
-            print("batch number" ,batch_number)
-            fixed_block_in_batch = ((block)%batch_size)
-            print("pos in batch",fixed_block_in_batch)
-            print(received_blocks[batch_number][fixed_block_in_batch])
-            print(received_blocks[batch_number][fixed_block_in_batch]["blocks"][0]["height"])
+        #print("Time taken to write " +str(self.end_number-self.start_number+1) + 
+        #    " blocks to memory is: " + str(end_time-start_time) )
+        # FIXME
 
-            if received_blocks[batch_number][fixed_block_in_batch] == None:
-                print("----------------------------------------------------")
-                print("----------------------------------------------------")
-                print("----------------------------------------------------")
-                print("Failed bad block repair function")
-                print("----------------------------------------------------")
-                print("----------------------------------------------------")
-                break
-            json.dump(received_blocks[batch_number][fixed_block_in_batch], block_file)
-
-    end_time = timer()
-    print("Time take to download and write " +str(end_number-start_number+1) + 
-        " blocks to memory is: " + str(end_time-start_time) )
-
-for i in range(97001,400000,1000):
-    grab_blocks(i, i+1000-1, 10)
+test = grabber()
+test.grab_blocks()
+test.check_blocks()
+test.write_blocks()
+import pdb;pdb.set_trace()

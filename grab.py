@@ -13,7 +13,7 @@ import pickle
 #add metas
 #refactor as functions
 class grabber:
-    def __init__(self,start_number = 1, end_number = 100, batch_size = 100, blocks_path = "/media/sha3bola/4BE6710147B4AF73/address2vec/blocks_parallel_quick"):
+    def __init__(self,start_number = 1, end_number = 10, batch_size = 5, blocks_path = "C:\\Code\\Block2TxGraph\\blocks"):
         self.blockchain_info_url = "https://blockchain.info/block-height/"
         self.blockchain_info_url_suffix = "?format=json"
         self.block_file_header = "batch_"
@@ -39,13 +39,13 @@ class grabber:
 
     def grab_blocks(self):
 
-        assert (self.end_number-self.start_number+1)%self.batch_size == 0
+        #assert (self.end_number-self.start_number+1)%self.batch_size == 0
 
-        for i in range(self.start_number, self.start_number + self.n_of_batches+1):
+        for i in range(self.start_number, self.start_number + self.n_of_batches):
             print("Grabbing batch " + str(i) )
             #sleep(0.1)
             urls = [self.blockchain_info_url + str(j) + self.blockchain_info_url_suffix for j in range(i, i+self.batch_size)]
-            rs = (grequests.get(u, stream = False, timeout = 60) for u in urls) #add timeout=60 in get
+            rs = (grequests.get(u, stream = False, timeout = 5) for u in urls) #add timeout=60 in get
             batch_to_process = grequests.map(rs,size = self.batch_size, exception_handler=self.exception_handler)
             batch_to_append = []
             for process in batch_to_process:

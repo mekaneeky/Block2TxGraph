@@ -13,7 +13,7 @@ import pickle
 #add metas
 #refactor as functions
 class grabber:
-    def __init__(self,start_number = 1, end_number = 10, batch_size = 5, blocks_path = "C:\\Code\\Block2TxGraph\\blocks"):
+    def __init__(self,start_number = 100410, end_number = 336860, batch_size = 50, blocks_path = "C:\\Code\\Block2TxGraph\\blocks_2011_2014"):
         self.blockchain_info_url = "https://blockchain.info/block-height/"
         self.blockchain_info_url_suffix = "?format=json"
         self.block_file_header = "batch_"
@@ -26,7 +26,7 @@ class grabber:
         self.start_number = start_number
         self.end_number = end_number
         self.batch_size = batch_size
-        self.n_of_batches = int(ceil((end_number - start_number)/batch_size))
+        self.n_of_batches = int(ceil((end_number+1 - start_number)/batch_size))
         self.received_blocks = {i:[] for i in range(1,1+self.n_of_batches+1)}
 
 
@@ -41,10 +41,13 @@ class grabber:
 
         #assert (self.end_number-self.start_number+1)%self.batch_size == 0
 
-        for i in range(self.start_number, self.start_number + self.n_of_batches):
+        for i in range(1, 1 + self.n_of_batches):
             print("Grabbing batch " + str(i) )
             #sleep(0.1)
-            urls = [self.blockchain_info_url + str(j) + self.blockchain_info_url_suffix for j in range(i, i+self.batch_size)]
+            urls = [self.blockchain_info_url + str(j) + self.blockchain_info_url_suffix for j in range(self.start_number + self.batch_size*(i-1), 
+                self.start_number + self.batch_size*i) ]
+            print("Starting at block: " + str(self.start_number + self.batch_size*(i-1)) )
+            print("Ending at block: " + str(self.start_number + self.batch_size*(i)) )
             rs = (grequests.get(u, stream = False, timeout = 5) for u in urls) #add timeout=60 in get
             batch_to_process = grequests.map(rs,size = self.batch_size, exception_handler=self.exception_handler)
             batch_to_append = []

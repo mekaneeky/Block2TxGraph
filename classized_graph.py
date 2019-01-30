@@ -21,13 +21,19 @@ class Transaction():
         self.input_sum = None
         self.output_sum = None
         self.possible_coinbase = False
+        self.possible_change_addresses = set()
         self.jackshit = False
+        self.tx_in_addr_set = set() #Used to verify change addresses
+        self.transaction_fee = None
+        self.tx_val_vectors = {}
         self.load_txs()
 
     def load_txs(self):
         for input_tx in self.inputs:
             try:
                 self.input_addresses[input_tx["prev_out"]["addr"]] = input_tx["prev_out"]["value"]
+                self.tx_in_addr_set.add(input_tx["prev_out"]["addr"])
+                
                 if self.input_sum == None:
                     self.input_sum = input_tx["prev_out"]["value"]
                 else:
@@ -40,21 +46,29 @@ class Transaction():
     
         for output_tx in self.outputs:
             try:
+                if output_tx["addr"] in self.tx_in_addr_set:
+                    self.possible_change_addresses.add(output_tx["addr"])
+
                 self.output_addresses[output_tx["addr"]] = output_tx["value"]
                 
-"""                 if self.output_sum == None:
+                if self.output_sum == None:
                     self.output_sum = output_tx["value"]
                 else:
                     self.output_sum += output_tx["value"]
- """                
+
+
                 if self.possible_coinbase:
                     print("possible Coinbase with value " + str(output_tx["value"]) )
                     self.input_addresses["Coinbase"] = output_tx["value"]
+        
+        self.transaction_fee = self.input_sum - self.output_sum
 
             except KeyError:
                 jackshit.append([self.inputs, self.outputs])
                 self.jackshit = True
-                print("----------------JAAAAAAAAAAAAAACK SHIT !")              
+                print("----------------JAAAAAAAAAAAAAACK SHIT !")
+
+               
 
 
 class Block():
@@ -71,6 +85,7 @@ class Block():
         for transaction in self.raw_transactions:
             print("--------Analyzing Transaction: " + str(transaction["tx_index"]))
             self.transactions.append( Transaction(transaction) )
+
 
 class BlockChain():
 
